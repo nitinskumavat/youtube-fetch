@@ -3,6 +3,8 @@ package handler
 import (
 	"context"
 	"fmt"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/nitinskumavat/youtube-fetch/database"
@@ -15,10 +17,19 @@ import (
 
 var next_page_token string
 var publish_time = time.Now().Format(time.RFC3339)
+var api_key_index = 0
+var cur_api_key string
+
+func updateApiKeyAndIndex() {
+	api_keys := strings.Split(os.Getenv("API_KEYS"), "#")
+	cur_api_key = api_keys[api_key_index]
+	api_key_index = (api_key_index + 1) % len(api_keys)
+}
 
 func fetchFromYoutube(query, content_type, published_before, next_page_token string) (youtube.SearchListResponse, error) {
 	ctx := context.Background()
-	yts, err := youtube.NewService(ctx, option.WithAPIKey("AIzaSyD41vI8OY-zVgU1QIFYrW43xl7UbIz75uc"))
+	fmt.Println("curr-api-key ", cur_api_key)
+	yts, err := youtube.NewService(ctx, option.WithAPIKey(cur_api_key))
 	if err != nil {
 		return youtube.SearchListResponse{}, err
 	}
@@ -35,13 +46,17 @@ func PrimitiveDateToUtcString(date_time primitive.DateTime) string {
 }
 
 func fetchVideoAndUpdateDB() {
+	if cur_api_key == "" {
+		updateApiKeyAndIndex()
+	}
 	youtube_data, err := fetchFromYoutube(YOUTUBE_QUERY, YOUTUBE_QUERY, publish_time, next_page_token)
-	fmt.Println("--youtube-data----", youtube_data.NextPageToken, " ", next_page_token)
-	next_page_token = youtube_data.NextPageToken
 	if err != nil {
 		fmt.Println(err)
+		updateApiKeyAndIndex()
 		return
 	}
+	fmt.Println("--youtube-data----", youtube_data.NextPageToken, " ", next_page_token)
+	next_page_token = youtube_data.NextPageToken
 	fmt.Println("youtube_data length ", len(youtube_data.Items))
 	models := make([]mongo.WriteModel, 0)
 	for _, item := range youtube_data.Items {

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strconv"
 	"time"
 
@@ -29,7 +30,7 @@ var collection *mongo.Collection
 const VIDEOS_PER_PAGE = 10
 
 func ConnectToDB() *mongo.Collection {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://nitin:nitin123.@videocluster.8coh86y.mongodb.net/?retryWrites=true&w=majority"))
+	client, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
 	if err != nil {
 		log.Fatal("Error creating mongodb client ", err.Error())
 	}
