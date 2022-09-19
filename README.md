@@ -18,4 +18,5 @@ Search index created on title and description in MongoDb Atlas Search for text s
 
 ## Imporvements to be done
 - Add pagination depending on Id . Instead of skipping the records using page number (logic implemented but commented bit more research required).
+- Add logger.
 
