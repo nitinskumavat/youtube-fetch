@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,7 +27,7 @@ type Video struct {
 var collection *mongo.Collection
 
 func ConnectToDB() *mongo.Collection {
-	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://nitin:nitin123.@videocluster.8coh86y.mongodb.net/test"))
+	client, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
 	if err != nil {
 		log.Fatal("Error creating mongodb client ", err.Error())
 	}

@@ -35,14 +35,14 @@ func PrimitiveDateToUtcString(date_time primitive.DateTime) string {
 }
 
 func fetchVideoAndUpdateDB() {
-	youtube_data, err := fetchFromYoutube("mobile", "video", publish_time, next_page_token)
+	youtube_data, err := fetchFromYoutube(YOUTUBE_QUERY, YOUTUBE_QUERY, publish_time, next_page_token)
 	fmt.Println("--youtube-data----", youtube_data.NextPageToken, " ", next_page_token)
 	next_page_token = youtube_data.NextPageToken
 	if err != nil {
 		fmt.Println(err)
 		return
 	}
-	fmt.Println("youtube_data ", len(youtube_data.Items))
+	fmt.Println("youtube_data length ", len(youtube_data.Items))
 	models := make([]mongo.WriteModel, 0)
 	for _, item := range youtube_data.Items {
 		t, err := time.Parse(time.RFC3339, item.Snippet.PublishedAt)
@@ -66,12 +66,11 @@ func fetchVideoAndUpdateDB() {
 		models = append(models, model)
 	}
 	fmt.Println(len(models))
-	fmt.Printf("models: %v\n", models)
 	resp, err := database.InsertManyItemToDB(models)
 	if err != nil {
 		fmt.Println("Error Inserting data ", err)
 	}
-	fmt.Println("Inserted successful with inserted count ", resp)
+	fmt.Println("Inserted successfully ", resp)
 }
 
 func UpdateLatestVideos() {
