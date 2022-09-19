@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
-	"os"
+	"strconv"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -26,8 +26,10 @@ type Video struct {
 
 var collection *mongo.Collection
 
+const VIDEOS_PER_PAGE = 10
+
 func ConnectToDB() *mongo.Collection {
-	client, err := mongo.NewClient(options.Client().ApplyURI(os.Getenv("MONGODB_URI")))
+	client, err := mongo.NewClient(options.Client().ApplyURI("mongodb+srv://nitin:nitin123.@videocluster.8coh86y.mongodb.net/?retryWrites=true&w=majority"))
 	if err != nil {
 		log.Fatal("Error creating mongodb client ", err.Error())
 	}
@@ -66,6 +68,7 @@ func GetQueryVideos(c *gin.Context) {
 	query_string := c.Query("query")
 	if query_string == "" {
 		c.JSON(http.StatusOK, gin.H{"data": videoList})
+		return
 	}
 	fmt.Println("query string ", query_string)
 	search_stage := mongo.Pipeline{
@@ -74,7 +77,7 @@ func GetQueryVideos(c *gin.Context) {
 				{Key: "text", Value: bson.D{
 					{Key: "path", Value: []string{"title", "description"}},
 					{Key: "query", Value: query_string},
-					{Key: "fuzzy", Value: bson.D{{Key: "maxEdits", Value: 2}}},
+					{Key: "fuzzy", Value: bson.D{{Key: "maxEdits", Value: 1}}},
 				}},
 			}},
 		},
@@ -85,6 +88,7 @@ func GetQueryVideos(c *gin.Context) {
 	if err != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching videos"})
+		return
 	}
 	defer cursor.Close(dbctx)
 	for cursor.Next(dbctx) {
@@ -100,29 +104,43 @@ func GetQueryVideos(c *gin.Context) {
 }
 
 func GetVideos(c *gin.Context) {
-	next_key := c.Query("next_key")
-	dbctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
-	opts := options.Find()
-	if next_key != "" {
-		next_id, err := primitive.ObjectIDFromHex(next_key)
-		if err != nil {
-			fmt.Println(err)
-			c.JSON(http.StatusInternalServerError, gin.H{"message": "Invlaid next key"})
-		}
-		opts.SetHint(bson.D{{Key: "_id", Value: 1}})
-		opts.SetMin(bson.D{{Key: "_id", Value: next_id}})
+	page_no_string := c.Query("page")
+	page_no, err := strconv.Atoi(page_no_string)
+	if err != nil || page_no <= 0 {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Invalid page number"})
+		return
 	}
+	// fmt.Println("next_key", next_key)
+	dbctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
+	opts := &options.FindOptions{}
 	opts.SetSort(bson.D{{Key: "published_at", Value: -1}})
-	opts.SetLimit(11)
+	//This logic is not optimal
+	opts.SetSkip(int64(page_no-1) * VIDEOS_PER_PAGE)
+	opts.SetLimit(10)
+
+	//Got some issue in below logic(some videos recieved from youtube with  published date not in order)
+	// if next_key != "" {
+	// 	next_id, err := primitive.ObjectIDFromHex(next_key)
+	// 	if err != nil {
+	// 		fmt.Println(err)
+	// 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Invlaid next key"})
+	// 		return
+	// 	}
+	// 	opts.SetHint(bson.D{{Key: "_id", Value: 1}})
+	// 	opts.SetMin(bson.D{{Key: "_id", Value: next_id}})
+	// 	fmt.Println("next_id ", next_id)
+	// }
+	// opts.SetLimit(11)
 
 	cursor, err := collection.Find(dbctx, bson.M{}, opts)
 	if err != nil {
 		fmt.Println(err)
 		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching data"})
+		return
 	}
 	videoList := make([]Video, 0)
 	item_count := 0
-	next_key = ""
+	// next_key = ""
 	for cursor.Next(dbctx) {
 		item_count += 1
 		video := &Video{}
@@ -131,14 +149,14 @@ func GetVideos(c *gin.Context) {
 			fmt.Println(err)
 			continue
 		}
-		fmt.Println(video.PublishedAt.Time().UTC().Format(time.RFC3339))
-		if item_count > 10 {
-			next_key = video.Id.Hex()
-			break
-		}
+		//part of commented logic
+		// if item_count > 10 {
+		// 	next_key = video.Id.Hex()
+		// 	break
+		// }
 		videoList = append(videoList, *video)
 	}
-	c.JSON(http.StatusOK, gin.H{"data": videoList, "next_key": next_key})
+	c.JSON(http.StatusOK, gin.H{"items": videoList, "status": "succcess"})
 }
 
 func DeleteMany(c *gin.Context) {
