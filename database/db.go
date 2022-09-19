@@ -61,7 +61,11 @@ func InsertManyItemToDB(items []mongo.WriteModel) (mongo.BulkWriteResult, error)
 
 func GetQueryVideos(c *gin.Context) {
 	// filter := bson.M{}
+	videoList := make([]Video, 0)
 	query_string := c.Query("query")
+	if query_string == "" {
+		c.JSON(http.StatusOK, gin.H{"data": videoList})
+	}
 	fmt.Println("query string ", query_string)
 	search_stage := mongo.Pipeline{
 		bson.D{
@@ -76,19 +80,18 @@ func GetQueryVideos(c *gin.Context) {
 	}
 	dbctx, _ := context.WithTimeout(context.Background(), 10*time.Second)
 	opts := options.Aggregate().SetMaxTime(5 * time.Second)
-	// opts.SetHint()
 	cursor, err := collection.Aggregate(dbctx, search_stage, opts)
-	fmt.Println(cursor.Current.String())
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching videos"})
 	}
 	defer cursor.Close(dbctx)
-	videoList := make([]Video, 0)
 	for cursor.Next(dbctx) {
 		video := &Video{}
 		err := cursor.Decode(&video)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println(err)
+			continue
 		}
 		videoList = append(videoList, *video)
 	}
@@ -111,10 +114,10 @@ func GetVideos(c *gin.Context) {
 	opts.SetSort(bson.D{{Key: "published_at", Value: -1}})
 	opts.SetLimit(11)
 
-	fmt.Println("----filter ---- ", opts)
 	cursor, err := collection.Find(dbctx, bson.M{}, opts)
 	if err != nil {
-		log.Fatal(err)
+		fmt.Println(err)
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Error fetching data"})
 	}
 	videoList := make([]Video, 0)
 	item_count := 0
@@ -124,7 +127,8 @@ func GetVideos(c *gin.Context) {
 		video := &Video{}
 		err := cursor.Decode(&video)
 		if err != nil {
-			log.Fatal(err)
+			fmt.Println(err)
+			continue
 		}
 		fmt.Println(video.PublishedAt.Time().UTC().Format(time.RFC3339))
 		if item_count > 10 {

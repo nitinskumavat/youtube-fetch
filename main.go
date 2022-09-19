@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/nitinskumavat/youtube-fetch/database"
+	"github.com/nitinskumavat/youtube-fetch/handler"
 )
 
 func main() {
@@ -14,7 +15,7 @@ func main() {
 	r := gin.Default()
 	r.GET("/search", database.GetQueryVideos)
 	r.GET("/videos", database.GetVideos)
-	r.GET("/deletemany", database.DeleteMany)
-	// go handler.UpdateLatestVideos()
+	// r.DELETE("/delete-all", database.DeleteMany)
+	go handler.UpdateLatestVideos()
 	r.Run(":3000")
 }
