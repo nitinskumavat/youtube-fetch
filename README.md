@@ -1,5 +1,5 @@
 # Youtube fetcher
-This  app preiodically fetch the data from the youtube after certain interval and push the same data in mongo db.
+This  app preiodically fetch the data from the youtube after certain interval and push the same data in mongo db.  It supports for multiple keys based on round robin approach. If Quota exceeded for first key it will use the next key. Api keys value can be found in Dockerfile
 
 ## Tech stack
 - Golang
